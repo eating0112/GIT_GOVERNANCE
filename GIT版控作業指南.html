@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GIT 版控作業指南｜Branch Strategy · PR · SIT / UAT · PROD</title>
+  <style>
+    :root {
+      --paper:#fafaf7; --surface:#f3f2ee; --surface-strong:#e7e5e0;
+      --dark-surface:#0d3a2a; --deep-dark:#004730; --ink:#1a1a1a;
+      --text-primary:#1a1a1a; --text-secondary:#404040; --text-muted:#5f5f5f;
+      --text-faint:#8c8c8c; --border:#d8d6d0; --border-soft:#e7e5e0;
+      --accent:#00573D; --accent-on:#fff; --delta-up:#1f5f3d; --delta-down:#8b1f1f;
+      --gold:#B3863B; --mono:'JetBrains Mono','SF Mono','Fira Code',Consolas,Monaco,monospace;
+      --sans:'Inter','Helvetica Neue','Noto Sans TC','PingFang TC',Arial,sans-serif;
+      --shadow-ring:0 0 0 1px var(--border); --shadow-whisper:0 4px 24px var(--surface-strong);
+      --radius-sm:2px; --radius-md:4px; --radius-lg:6px;
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--text-primary); font-family:var(--sans); font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+    a { color:var(--accent); text-decoration-color:var(--border); }
+    a:hover { text-decoration-color:var(--accent); }
+    code, pre { font-family:var(--mono); }
+    code { padding:.08em .35em; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); font-size:.88em; }
+    .topbar { position:sticky; top:0; z-index:10; height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:var(--deep-dark); color:#fff; border-bottom:1px solid #0b6246; }
+    .brand { display:flex; gap:12px; align-items:center; font-size:13px; letter-spacing:.04em; }
+    .brand-mark { width:27px; height:27px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.7); border-radius:50%; font-weight:700; }
+    .top-actions button { border:1px solid rgba(255,255,255,.34); border-radius:var(--radius-md); padding:7px 12px; color:#fff; background:transparent; font:inherit; cursor:pointer; }
+    .top-actions button:hover { background:rgba(255,255,255,.1); }
+    .layout { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:calc(100vh - 56px); }
+    aside { position:sticky; top:56px; align-self:start; height:calc(100vh - 56px); padding:28px 20px; border-right:1px solid var(--border); background:var(--surface); overflow:auto; }
+    .side-kicker { margin:0 0 5px; color:var(--accent); font-size:12px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; }
+    .side-title { margin:0 0 24px; font-size:19px; font-weight:500; line-height:1.25; }
+    nav a { display:block; padding:9px 10px; margin:2px 0; color:var(--text-secondary); border-left:3px solid transparent; text-decoration:none; font-size:13px; }
+    nav a:hover, nav a.active { color:var(--accent); border-left-color:var(--accent); background:var(--paper); }
+    .side-note { margin-top:28px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-muted); font-size:12px; line-height:1.5; }
+    main { width:min(1180px,100%); padding:56px 56px 80px; margin:0 auto; }
+    .eyebrow { margin:0 0 16px; color:var(--gold); font-size:12px; font-weight:700; letter-spacing:.1em; }
+    h1,h2,h3 { color:var(--text-primary); font-weight:500; letter-spacing:-.01em; }
+    h1 { max-width:850px; margin:0; font-size:clamp(32px,4vw,52px); line-height:1.1; }
+    h2 { margin:64px 0 18px; padding-top:16px; border-top:1px solid var(--border); font-size:28px; line-height:1.2; }
+    h3 { margin:30px 0 10px; font-size:19px; line-height:1.3; }
+    p { margin:0 0 14px; }
+    .lead { max-width:780px; margin:18px 0 28px; color:var(--text-secondary); font-size:18px; line-height:1.55; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 34px; color:var(--text-muted); font-size:12px; }
+    .badge { display:inline-flex; align-items:center; min-height:24px; padding:2px 9px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--paper); color:var(--text-muted); font-size:12px; font-weight:500; }
+    .badge.green { border-color:var(--accent); color:var(--accent); }
+    .badge.gold { border-color:var(--gold); color:#795a25; }
+    figure { margin:22px 0 12px; }
+    .figure-frame { padding:16px; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow-ring); overflow:hidden; }
+    figcaption { margin-top:8px; color:var(--text-muted); text-align:center; font-size:12px; }
+    svg { display:block; width:100%; height:auto; }
+    .callout { margin:22px 0; padding:16px 18px; border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:var(--radius-md); background:var(--surface); }
+    .callout.warn { border-left-color:var(--gold); }
+    .callout.danger { border-left-color:var(--delta-down); }
+    .callout strong { display:block; margin-bottom:4px; color:var(--accent); font-weight:700; }
+    .callout.warn strong { color:#795a25; }
+    .callout.danger strong { color:var(--delta-down); }
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:22px 0; }
+    .card { padding:18px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow-ring); }
+    .card h3 { margin:0 0 8px; font-size:17px; }
+    .card p { margin:0; color:var(--text-secondary); font-size:14px; }
+    .card .branch { margin:0 0 10px; color:var(--accent); font:500 15px/1.35 var(--mono); }
+    .table-wrap { margin:18px 0 12px; overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--paper); }
+    table { width:100%; border-collapse:collapse; min-width:720px; }
+    th { padding:11px 12px; border-bottom:2px solid var(--border); background:var(--surface); color:var(--text-secondary); text-align:left; font-weight:500; }
+    td { padding:11px 12px; border-bottom:1px solid var(--border-soft); vertical-align:top; }
+    tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:var(--surface); }
+    td:first-child { color:var(--accent); font-family:var(--mono); font-weight:600; white-space:nowrap; }
+    .caption { margin:0 0 18px; color:var(--text-muted); text-align:center; font-size:12px; }
+    .steps { display:grid; gap:10px; counter-reset:step; margin:18px 0; }
+    .step { display:grid; grid-template-columns:34px minmax(0,1fr); gap:12px; align-items:start; }
+    .step::before { counter-increment:step; content:counter(step,decimal-leading-zero); display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; font:600 12px var(--mono); }
+    .step strong { display:block; margin-bottom:2px; font-weight:600; }
+    .step p { margin:0; color:var(--text-secondary); }
+    pre { position:relative; margin:12px 0 18px; padding:16px 18px; overflow:auto; border:1px solid var(--border); border-radius:var(--radius-md); background:#f0f1ed; color:var(--deep-dark); font-size:13px; line-height:1.55; }
+    pre code { padding:0; border:0; background:transparent; font-size:inherit; }
+    .copy { position:absolute; top:8px; right:8px; border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 8px; background:var(--paper); color:var(--text-muted); font:12px var(--sans); cursor:pointer; }
+    .copy:hover { border-color:var(--accent); color:var(--accent); }
+    ul,ol { margin:8px 0 18px; padding-left:24px; }
+    li { margin:7px 0; }
+     .checklist { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:16px 0; }
+     .check { display:flex; gap:10px; padding:12px; border:1px solid var(--border-soft); background:var(--surface); }
+     .check::before { content:'□'; color:var(--accent); font:18px var(--mono); line-height:1.25; }
+     .scenario-grid { display:grid; gap:18px; margin:22px 0; }
+     .scenario { padding:20px; }
+     .scenario h3 { margin:0 0 12px; color:var(--accent); }
+     .scenario-label { margin:14px 0 5px; color:var(--text-primary); font-size:13px; font-weight:600; }
+     .scenario p { color:var(--text-secondary); }
+     .scenario ol, .scenario ul { margin-bottom:10px; }
+     .scenario li { margin:5px 0; color:var(--text-secondary); }
+     .scenario .done { margin:14px 0 0; padding:12px 14px; border-left:3px solid var(--accent); background:var(--paper); }
+     .scenario .done strong { color:var(--accent); }
+     .scenario-flow { margin:18px 0 24px; }
+     .scenario-flow .figure-frame { background:var(--paper); }
+     .scenario-flow figcaption { text-align:left; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .footer-note { margin-top:58px; padding-top:16px; border-top:1px solid var(--border); color:var(--text-faint); font-size:12px; }
+    @media (max-width:900px) { .layout { grid-template-columns:1fr; } aside { position:relative; top:0; height:auto; border-right:0; border-bottom:1px solid var(--border); } nav { display:grid; grid-template-columns:repeat(2,1fr); gap:2px; } main { padding:36px 24px 60px; } .grid-3,.two-col,.checklist { grid-template-columns:1fr; } }
+    @media print { .topbar, aside, .top-actions, .copy { display:none !important; } .layout { display:block; } main { width:100%; padding:0; } h2 { break-before:page; } .figure-frame,.card,.callout,.table-wrap { break-inside:avoid; box-shadow:none; } a { color:inherit; text-decoration:none; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } * { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">G</span><span>GIT GOVERNANCE</span></div>
+    <div class="top-actions"><button type="button" onclick="window.print()">列印 / 存成 PDF</button></div>
+  </header>
+  <div class="layout">
+    <aside>
+      <p class="side-kicker">Internal Reference</p>
+      <p class="side-title">GIT 版控作業指南</p>
+      <nav aria-label="文件章節">
+        <a href="#overview">01　核心規則</a>
+        <a href="#branches">02　Branch 清單</a>
+        <a href="#flow">03　標準流轉</a>
+        <a href="#work-branches">04　工作分支</a>
+        <a href="#sit">05　SIT 個別整合</a>
+         <a href="#uat">06　UAT 個別包版</a>
+         <a href="#main">07　main 收斂</a>
+         <a href="#special-cases">08　特殊情境</a>
+         <a href="#checklist">09　檢查清單</a>
+      </nav>
+      <div class="side-note">本版重點：<code>feature/</code>、<code>issue/</code>、<code>sync/</code> 都是獨立工作分支；SIT 與 UAT 都由各工作分支個別 merge 進入。</div>
+    </aside>
+    <main>
+      <section id="overview">
+        <p class="eyebrow">GIT GOVERNANCE · 2026-08-12</p>
+        <h1>GIT 版控作業指南</h1>
+        <p class="lead">把需求、維運問題與 IT 提供的程式碼，分別放在可追溯的工作分支；經過 SIT 整合驗證後，再由同一批工作分支個別納入 UAT 包版。</p>
+        <div class="meta"><span class="badge green">Branch Strategy</span><span class="badge">PR / Code Review</span><span class="badge">SIT / UAT</span><span class="badge gold">PROD Record</span></div>
+        <figure>
+          <div class="figure-frame">
+            <svg viewBox="0 0 1120 520" role="img" aria-labelledby="flow-title flow-desc">
+              <title id="flow-title">工作分支個別進入 SIT、UAT，main 回併 dev 的 Git 流程</title>
+              <desc id="flow-desc">dev 建立 feature、issue、sync 三類工作分支，每個分支分別 merge 到 SIT；SIT 驗證通過後，仍由原工作分支分別 merge 到 UAT；正式上線確認後，main 再回併 dev。</desc>
+              <defs>
+                <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#00573D"/></marker>
+                <marker id="arrow-gold" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#B3863B"/></marker>
+                <marker id="arrow-dark" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#004730"/></marker>
+                <marker id="arrow-release" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6B4C9A"/></marker>
+              </defs>
+              <rect x="10" y="10" width="1100" height="500" rx="10" fill="#fafaf7" stroke="#d8d6d0"/>
+              <text x="36" y="45" font-family="Arial,sans-serif" font-size="16" font-weight="600" fill="#00573D">同一個 dev 基線</text>
+              <text x="36" y="492" font-family="Arial,sans-serif" font-size="12" fill="#5f5f5f">綠／金線：工作分支個別進 SIT、UAT　紫線：main 正式上線後回併 dev</text>
+              <g transform="translate(35 220)"><rect width="120" height="64" rx="4" fill="#0d3a2a"/><text x="60" y="28" text-anchor="middle" font-family="Consolas,monospace" font-size="18" font-weight="600" fill="#fff">dev</text><text x="60" y="47" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#fff">開發基線</text></g>
+              <rect x="200" y="145" width="310" height="235" rx="6" fill="#f3f2ee" stroke="#d8d6d0"/>
+              <rect x="635" y="55" width="220" height="125" rx="6" fill="#e7e5e0" stroke="#00573D" stroke-width="2"/>
+              <rect x="635" y="280" width="220" height="125" rx="6" fill="#e7e5e0" stroke="#00573D" stroke-width="2"/>
+              <text x="355" y="167" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="600" fill="#00573D">工作分支</text>
+              <text x="745" y="82" text-anchor="middle" font-family="Consolas,monospace" font-size="19" font-weight="600" fill="#004730">SIT</text>
+              <text x="745" y="99" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#404040">個別整合 / 自測 / Review</text>
+              <text x="745" y="307" text-anchor="middle" font-family="Consolas,monospace" font-size="19" font-weight="600" fill="#004730">UAT</text>
+              <text x="745" y="324" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#404040">個別包版 / 交付</text>
+              <g><rect x="230" y="180" width="250" height="44" rx="4" fill="#fafaf7" stroke="#00573D" stroke-width="2"/><text x="355" y="207" text-anchor="middle" font-family="Consolas,monospace" font-size="13" font-weight="600" fill="#00573D">feature/&lt;需求&gt;</text></g>
+              <g><rect x="230" y="245" width="250" height="44" rx="4" fill="#fafaf7" stroke="#00573D" stroke-width="2"/><text x="355" y="272" text-anchor="middle" font-family="Consolas,monospace" font-size="13" font-weight="600" fill="#00573D">issue/&lt;編號&gt;</text></g>
+              <g><rect x="230" y="310" width="250" height="44" rx="4" fill="#fafaf7" stroke="#B3863B" stroke-width="2"/><text x="355" y="337" text-anchor="middle" font-family="Consolas,monospace" font-size="13" font-weight="600" fill="#795a25">sync/&lt;日期&gt;</text></g>
+              <path d="M155 252 C180 252 180 202 225 202" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M155 252 C185 252 185 267 225 267" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M155 252 C180 252 180 332 225 332" stroke="#B3863B" stroke-width="2.5" fill="none" marker-end="url(#arrow-gold)"/>
+              <path d="M480 202 C565 202 575 105 635 105" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M480 267 C575 267 585 123 635 123" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M480 332 C525 332 545 290 560 250 C575 210 575 170 610 154 C620 150 628 150 635 150" stroke="#B3863B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#arrow-gold)"/>
+              <path d="M480 202 C565 202 580 330 635 330" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M480 267 C575 267 585 350 635 350" stroke="#00573D" stroke-width="2.5" fill="none" marker-end="url(#arrow-green)"/><path d="M480 332 C525 332 545 345 560 355 C575 365 585 370 610 370 C620 370 628 370 635 370" stroke="#B3863B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#arrow-gold)"/>
+              <g font-family="Consolas,monospace" font-size="9" fill="#404040"><text x="650" y="105">feature</text><text x="650" y="123">issue</text><text x="650" y="150" fill="#795a25">sync</text><text x="650" y="330">feature</text><text x="650" y="350">issue</text><text x="650" y="370" fill="#795a25">sync</text></g>
+              <text x="745" y="197" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#5f5f5f">各自 merge 進 SIT</text>
+              <text x="745" y="268" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#795a25">SIT 驗證通過後，原工作分支各自 merge 進 UAT</text>
+              <g transform="translate(905 315)"><rect width="170" height="50" rx="4" fill="#0d3a2a"/><text x="85" y="23" text-anchor="middle" font-family="Consolas,monospace" font-size="18" font-weight="600" fill="#fff">main</text><text x="85" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#fff">PROD 上線紀錄</text></g>
+              <path d="M855 340 H895" stroke="#004730" stroke-width="3" fill="none" marker-end="url(#arrow-dark)"/>
+              <path d="M990 365 C990 440 795 462 555 462 C330 462 170 445 100 292" stroke="#6B4C9A" stroke-width="2.5" fill="none" marker-end="url(#arrow-release)"/>
+              <text x="645" y="478" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#6B4C9A">main 更新後回併 dev，建立下一輪開發基線</text>
+            </svg>
+          </div>
+          <figcaption>圖 1　正確流程：feature、issue、sync 各自進入 SIT 與 UAT；UAT 只納入已通過 SIT 驗證的工作分支。</figcaption>
+        </figure>
+        <div class="callout"><strong>一句話原則</strong>SIT 與 UAT 都是整合目標；來源永遠是各自的工作分支。<code>SIT</code> 不是交付基準，<code>UAT</code> 才是包版、差異檔與交付基準。</div>
+        <h3>為什麼 SIT、UAT 都採個別工作分支 merge？</h3>
+        <p>因為每一條 <code>feature/</code>、<code>issue/</code>、<code>sync/</code> 都代表一個可以獨立追蹤、驗證與交付的變更單位。SIT 負責整合與驗證，UAT 負責包版與交付；兩個環境雖然都是整合目標，但不代表要把整個 SIT 一次搬到 UAT。</p>
+        <div class="grid-3">
+          <article class="card"><h3>可追溯</h3><p>每個需求、Issue 或 IT 調整都有自己的 branch、PR 與 merge 紀錄，能清楚知道哪一項變更進入哪個環境。</p></article>
+          <article class="card"><h3>風險隔離</h3><p>某一條工作分支在 SIT 發生問題時，可以單獨修正、暫緩或回退，不會把其他已驗證內容一起影響。</p></article>
+          <article class="card"><h3>精準交付</h3><p>UAT 只納入已通過 SIT 驗證且本次要交付的工作分支，包版、差異檔與交付清單才會一致。</p></article>
+        </div>
+      </section>
+      <section id="branches">
+        <h2>2. Branch 清單與角色定義</h2>
+        <p>本專案的 branch 可分成「開發基線」、「工作分支」與「環境整合 / 交付」三類。<code>sync/</code> 與 <code>feature/</code>、<code>issue/</code> 的流程定位相同，差異只在程式碼提供者是 IT。</p>
+        <div class="grid-3">
+          <article class="card"><p class="branch">dev</p><h3>開發基線</h3><p>當 <code>main</code> 更新時，將 <code>main</code> merge 到 <code>dev</code>，作為新一輪工作分支的起點。</p></article>
+          <article class="card"><p class="branch">feature/ · issue/ · sync/</p><h3>獨立工作分支</h3><p>三者都可個別進入 SIT、UAT；差別是來源目的與製作者不同。</p></article>
+          <article class="card"><p class="branch">SIT · UAT · main</p><h3>環境與交付分支</h3><p>SIT 做內部驗證，UAT 做包版交付，main 留存已確認 PROD 上線紀錄。</p></article>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>分支名稱</th><th>角色</th><th>使用方式</th><th>定位</th></tr></thead>
+            <tbody>
+              <tr><td>main</td><td>正式交付紀錄（PROD）</td><td>IT 確認正式上線後，將本次已交付內容回併，保留正式環境版本紀錄。</td><td>PROD 紀錄</td></tr>
+              <tr><td>dev</td><td>開發基線</td><td>main 更新時，將 main merge 到 dev，供下一輪工作分支使用。</td><td>開發起點</td></tr>
+              <tr><td>feature/&lt;需求&gt;</td><td>新合約需求</td><td>由 HY 針對新合約進行功能優化或新增功能；完成後個別進入 SIT、UAT。</td><td>HY 功能開發</td></tr>
+              <tr><td>issue/&lt;編號&gt;</td><td>維運問題修正</td><td>由 HY 針對維運問題進行修正；完成後個別進入 SIT、UAT。</td><td>HY 問題修正</td></tr>
+              <tr><td>sync/&lt;日期&gt;</td><td>IT 程式碼同步</td><td>由 IT 提供或調整程式碼；流程與 feature / issue 相同，完成後個別進入 SIT、UAT。</td><td>IT 程式提供</td></tr>
+              <tr><td>SIT</td><td>HY 測試機 / 整合區</td><td>版號 commit、Code Review、內部整合、自測與驗證用；feature / issue / sync 分別 merge 進入。</td><td>內部驗證</td></tr>
+              <tr><td>UAT</td><td>IT 上版包版區</td><td>版號 commit、包版、差異檔與交付內容用；feature / issue / sync 分別 merge 進入。</td><td>交付基準</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">表 1　Branch 角色總覽。sync/ 不是環境分支，而是 IT 提供程式碼時使用的工作分支。</p>
+      </section>
+      <section id="flow">
+        <h2>3. 標準流轉與不可混用的邊界</h2>
+        <div class="steps">
+          <div class="step"><div><strong>從 dev 建立工作分支</strong><p>依情境建立 <code>feature/&lt;需求&gt;</code>、<code>issue/&lt;編號&gt;</code> 或 <code>sync/&lt;日期&gt;</code>。</p></div></div>
+          <div class="step"><div><strong>工作分支完成開發 / 程式提供</strong><p>完成必要檢查與 commit，push 到遠端；三類工作分支都可獨立建立 PR 或進行 merge。</p></div></div>
+          <div class="step"><div><strong>個別 merge 進 SIT</strong><p>每個 feature、issue、sync 分支分別進入 SIT，不把多個來源壓成一個模糊版本。</p></div></div>
+          <div class="step"><div><strong>SIT 驗證</strong><p>進行 Code Review、內部整合、自測與環境驗證；若失敗，回原工作分支修正。</p></div></div>
+          <div class="step"><div><strong>個別 merge 進 UAT</strong><p>驗證通過的各工作分支，再分別 merge 進 UAT；不採用 <code>SIT → UAT</code> 整批 merge。</p></div></div>
+          <div class="step"><div><strong>IT 上線後回併 main</strong><p>包版、差異檔與交付以 UAT 為準；正式環境確認後，將本次已交付內容收斂回 main。</p></div></div>
+        </div>
+        <div class="callout warn"><strong>最重要的更正</strong>請把「來源 branch」記在每一次 SIT / UAT merge 的紀錄中。SIT 與 UAT 都是目標分支，不是下一階段的唯一來源分支。</div>
+      </section>
+      <section id="work-branches">
+        <h2>4. 工作分支：feature / issue / sync</h2>
+        <div class="two-col">
+          <div>
+            <h3>4.1 Feature：新合約需求</h3>
+            <p>假設需求代號為 <code>REQ-202608-001</code>：</p>
+            <pre><button class="copy" type="button">複製</button><code>git switch dev
+git pull origin dev
+git switch -c feature/REQ-202608-001
+git add &lt;變更檔案&gt;
+git commit -m "[DEV][帳單功能][REQ] 新增合約需求 REQ-202608-001"
+git push -u origin feature/REQ-202608-001</code></pre>
+          </div>
+          <div>
+            <h3>4.2 Issue：維運問題修正</h3>
+            <p>假設維運問題編號為 <code>#105</code>：</p>
+            <pre><button class="copy" type="button">複製</button><code>git switch dev
+git pull origin dev
+git switch -c issue/105
+git add &lt;修正檔案&gt;
+git commit -m "[ISSUE][帳單功能][#105] 修正繳款狀態顯示問題"
+git push -u origin issue/105</code></pre>
+          </div>
+        </div>
+        <h3>4.3 Sync：IT 提供程式碼</h3>
+        <p><code>sync/</code> 的流程與 feature、issue 相同；差異是製作者與程式碼來源為 IT。同步時保留 IT 提供內容的來源、日期與差異說明。</p>
+        <pre><button class="copy" type="button">複製</button><code>git switch dev
+git pull origin dev
+git switch -c sync/20260812-IT-MODIFY
+# 放入 IT 提供或調整的程式碼
+git diff --check
+git diff --stat
+git commit -m "[SYNC][程式][IT_MODIFY] 同步 IT 提供程式碼"
+git push -u origin sync/20260812-IT-MODIFY</code></pre>
+        <ul>
+          <li>不要把 sync/ 當成 SIT 或 UAT 的替代分支；它仍然是獨立工作分支。</li>
+          <li>IT 提供的程式碼若與目前 dev 有衝突，先釐清保留、合併或回退內容，再進入 SIT。</li>
+          <li>sync/ 完成後，依照 feature / issue 相同方式，個別 merge 到 SIT，再個別 merge 到 UAT。</li>
+        </ul>
+      </section>
+      <section id="sit">
+        <h2>5. SIT：各工作分支個別整合</h2>
+        <p>SIT 是 HY 測試機上的內部整合區。feature、issue、sync 不必先合成一個暫存分支，而是依照各自的 PR / merge 紀錄個別進入。</p>
+        <h3>5.1 Feature / Issue / Sync 個別進 SIT</h3>
+        <p>以下以 feature 為例；issue 與 sync 只需替換來源 branch 名稱，操作方式相同：</p>
+        <pre><button class="copy" type="button">複製</button><code># 將 feature 個別整合進 SIT
+git switch SIT
+git pull origin SIT
+git merge --no-ff origin/feature/REQ-202608-001 -m "[DEV][SIT] Merge feature/REQ-202608-001"
+git push origin SIT
+
+# 其他來源也各自執行一次，不是把 SIT 當來源整批搬到 UAT
+git merge --no-ff origin/issue/105 -m "[ISSUE][SIT] Merge issue/105"
+git push origin SIT
+git merge --no-ff origin/sync/20260812-IT-MODIFY -m "[SYNC][SIT] Merge sync/20260812-IT-MODIFY"
+git push origin SIT</code></pre>
+        <div class="callout"><strong>SIT 的驗收重點</strong>每個來源 branch 都要能對應到 PR、需求 / ISSUE / IT 調整說明，以及 SIT 的驗證結果。SIT 可以是多條工作線的整合結果，但每條來源都要可追溯。</div>
+      </section>
+      <section id="uat">
+        <h2>6. UAT：各工作分支個別包版</h2>
+        <p>UAT 是包版、差異檔與交付的唯一基準。通過 SIT 驗證的 feature、issue、sync，仍由各自原始 branch 個別 merge 進 UAT；不執行 <code>git merge SIT</code> 作為整批交付方式。</p>
+        <h3>6.1 個別 merge 進 UAT</h3>
+        <pre><button class="copy" type="button">複製</button><code># 將通過 SIT 驗證的 feature 個別納入 UAT
+git switch UAT
+git pull origin UAT
+git merge --no-ff origin/feature/REQ-202608-001 -m "[DEV][UAT] Merge feature/REQ-202608-001"
+git push origin UAT
+
+# issue 與 sync 也各自納入，不從 SIT 整批 merge
+git merge --no-ff origin/issue/105 -m "[ISSUE][UAT] Merge issue/105"
+git push origin UAT
+git merge --no-ff origin/sync/20260812-IT-MODIFY -m "[SYNC][UAT] Merge sync/20260812-IT-MODIFY"
+git push origin UAT</code></pre>
+        <h3>6.2 UAT 交付內容</h3>
+        <ul>
+          <li>版號 commit 落在 UAT。</li>
+          <li>包版檔、差異檔、設定異動與交付清單都從 UAT 產出。</li>
+          <li>若某一條工作分支在 SIT 通過後又被修改，必須重新確認 SIT 驗證結果，再納入 UAT。</li>
+          <li>交付清單應列出本次 UAT 個別納入的 feature、issue、sync 分支與 commit。</li>
+        </ul>
+        <h3>6.3 UAT 交付 Tag</h3>
+        <p>每次完成 UAT 包版、差異檔與交付清單並交付 IT 時，都要在該次實際交付使用的 UAT commit 建立 Tag，命名格式為 <code>UAT/&lt;程式交付日期&gt;</code>。例如：<code>UAT/20260812</code>。同一個 PROD 上線週期若有多次交付，每次都建立新的 UAT Tag，不覆蓋既有 Tag。</p>
+        <pre><button class="copy" type="button">複製</button><code># 在實際交付 IT 的 UAT commit 建立 Tag
+git switch UAT
+git tag -a UAT/20260812 -m "UAT 程式交付 20260812"
+git push origin UAT/20260812</code></pre>
+        <div class="callout danger"><strong>禁止作法</strong><code>git switch UAT</code> 後直接執行 <code>git merge origin/SIT</code>，會把 SIT 中不一定要交付的整合內容一併帶入 UAT。</div>
+      </section>
+      <section id="main">
+        <h2>7. main：正式上線紀錄的收斂</h2>
+        <p>UAT 完成包版並由 IT 確認正式環境上線後，才將本次已交付內容收斂回 main。main 的用途是保存 PROD 已確認版本，不拿來做日常開發或暫存整合。</p>
+        <pre><button class="copy" type="button">複製</button><code># IT 確認正式環境上線後，依團隊核准方式回併正式紀錄
+git switch main
+git pull origin main
+# 將本次已交付、已確認上線的內容回併 main
+git merge --no-ff origin/UAT -m "[SYNC][PROD] 收斂已確認上線版本"
+git push origin main
+
+# main 更新後，更新下一輪開發基線
+git switch dev
+git pull origin dev
+git merge --no-ff origin/main -m "[SYNC][BASELINE] 同步 main 至 dev"
+git push origin dev</code></pre>
+        <h3>7.1 PROD 上線 Tag</h3>
+        <p>IT 確認正式環境上線並完成 main 收斂後，在代表正式上線版本的 main commit 建立 Tag，命名格式為 <code>PROD/&lt;上線日期&gt;</code>。例如：<code>PROD/20260820</code>。UAT Tag 記錄每次程式交付版本，PROD Tag 記錄最終正式上線版本；一個 PROD Tag 可以對應多個 UAT Tags。</p>
+        <div class="callout"><strong>多次交付關係</strong><code>UAT/20260812</code>、<code>UAT/20260814</code>、<code>UAT/20260818</code> 可先後提供給 IT 驗證，最後正式上線後建立 <code>PROD/20260820</code>。交付清單應保留這些 UAT Tag 與 PROD Tag 的對應關係。</div>
+        <pre><button class="copy" type="button">複製</button><code># 在正式上線並回併 main 的 commit 建立 Tag
+git switch main
+git tag -a PROD/20260815 -m "PROD 正式上線 20260815"
+git push origin PROD/20260815</code></pre>
+        <div class="callout warn"><strong>版本判斷</strong>要交付哪一版，看 UAT；正式上線紀錄，看 main；下一輪開發起點，看 dev。SIT 不扮演 UAT 的來源角色。</div>
+      </section>
+      <section id="special-cases">
+        <h2>8. 特殊情境處理</h2>
+        <p>工作分支可能因為開發時間較長、其他需求先完成上線，導致原本的開發基線已經落後。遇到這類情況時，先確認工作分支與最新 <code>dev</code> 的差異，再決定同步、重開或關閉分支。</p>
+        <div class="callout"><strong>共通判斷</strong>工作分支進入 SIT 前，必須確認已同步最新 <code>dev</code> 基線；同步後若有程式異動，必須重新完成必要驗證。</div>
+        <figure class="scenario-flow">
+          <div class="figure-frame">
+            <svg viewBox="0 0 1040 360" role="img" aria-labelledby="stale-title stale-desc">
+              <title id="stale-title">舊基線工作分支同步最新 dev 的處理流程</title>
+              <desc id="stale-desc">上方顯示 feature/1 到 feature/19 先進入 main，再由 main 更新最新 dev；下方顯示 feature/20 保留原功能修改，接著將最新 dev merge 進 feature/20，完成後再進入 SIT 與 UAT。</desc>
+              <defs><marker id="stale-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker><marker id="stale-arrow-gold" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--gold)"/></marker></defs>
+              <rect x="10" y="10" width="1020" height="340" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+              <text x="34" y="40" font-family="var(--sans)" font-size="15" font-weight="600" fill="var(--accent)">情境：feature/20 還沒完成，但 dev 已經更新</text>
+              <text x="34" y="72" font-family="var(--sans)" font-size="12" font-weight="600" fill="var(--text-secondary)">既有內容的收斂路徑（同樣從 dev#A 建立）</text>
+              <text x="34" y="214" font-family="var(--sans)" font-size="12" font-weight="600" fill="var(--text-secondary)">仍在開發的工作路徑</text>
+              <text x="97" y="137" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--accent)">共同來源</text>
+              <g transform="translate(250 88)"><rect width="160" height="52" rx="4" fill="var(--surface-strong)" stroke="var(--border)"/><text x="80" y="23" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--text-secondary)">feature/1～19</text><text x="80" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--text-muted)">已完成並準備上線</text></g>
+              <g transform="translate(450 88)"><rect width="145" height="52" rx="4" fill="var(--dark-surface)"/><text x="72" y="23" text-anchor="middle" font-family="var(--mono)" font-size="16" fill="var(--accent-on)">main</text><text x="72" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--accent-on)">正式上線紀錄</text></g>
+              <g transform="translate(650 88)"><rect width="155" height="52" rx="4" fill="var(--dark-surface)"/><text x="77" y="23" text-anchor="middle" font-family="var(--mono)" font-size="16" fill="var(--accent-on)">dev#2</text><text x="77" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--accent-on)">最新開發基線</text></g>
+              <g transform="translate(35 150)"><rect width="125" height="52" rx="4" fill="var(--dark-surface)"/><text x="62" y="23" text-anchor="middle" font-family="var(--mono)" font-size="16" fill="var(--accent-on)">dev#A</text><text x="62" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--accent-on)">共同建立基線</text></g>
+              <g transform="translate(250 235)"><rect width="160" height="52" rx="4" fill="var(--paper)" stroke="var(--accent)" stroke-width="2"/><text x="80" y="23" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--accent)">feature/20</text><text x="80" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--text-secondary)">保留尚未完成的功能</text></g>
+              <g transform="translate(455 235)"><rect width="205" height="52" rx="4" fill="var(--surface-strong)" stroke="var(--gold)" stroke-width="2"/><text x="102" y="23" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="600" fill="var(--gold)">將 dev#2 merge 進 feature/20</text><text x="102" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--text-secondary)">解衝突並重新測試</text></g>
+              <g transform="translate(705 235)"><rect width="105" height="52" rx="4" fill="var(--surface-strong)" stroke="var(--accent)" stroke-width="2"/><text x="52" y="23" text-anchor="middle" font-family="var(--mono)" font-size="16" fill="var(--deep-dark)">SIT</text><text x="52" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--text-secondary)">重新驗證</text></g>
+              <g transform="translate(855 235)"><rect width="105" height="52" rx="4" fill="var(--surface-strong)" stroke="var(--accent)" stroke-width="2"/><text x="52" y="23" text-anchor="middle" font-family="var(--mono)" font-size="16" fill="var(--deep-dark)">UAT</text><text x="52" y="39" text-anchor="middle" font-family="var(--sans)" font-size="10" fill="var(--text-secondary)">個別交付</text></g>
+              <path d="M160 176 H215 V114 H242" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#stale-arrow)"/><path d="M215 114 V261 H242" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#stale-arrow)"/><path d="M410 114 H442" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#stale-arrow)"/><path d="M595 114 H642" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#stale-arrow)"/><path d="M410 261 H447" stroke="var(--gold)" stroke-width="2.5" fill="none" marker-end="url(#stale-arrow-gold)"/><path d="M660 261 H697" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#stale-arrow)"/><path d="M810 261 H847" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#stale-arrow)"/>
+              <path d="M727 140 V194 C727 210 645 210 560 229" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#stale-arrow-gold)"/>
+              <text x="500" y="165" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--gold)">main 更新後，形成新的 dev#2</text>
+              <text x="505" y="328" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--text-muted)">不要重新 merge feature/1～19；它們已經透過 main → dev#2 帶入最新基線</text>
+            </svg>
+          </div>
+          <figcaption>圖 2　上方是已上線內容形成新 dev 基線；下方是 feature/20 同步新基線後，再進入 SIT 與 UAT。</figcaption>
+        </figure>
+        <div class="callout"><strong>閱讀這張圖</strong>上方路徑處理已完成的 feature/1～19；下方路徑處理尚未完成的 feature/20。兩條路徑在最新 <code>dev#2</code> 匯合，實際動作是「將 <code>dev#2</code> merge 進 <code>feature/20</code>」，不是把 <code>feature/20</code> merge 回 <code>dev#2</code>，也不需要重新逐一 merge feature/1～19。</div>
+        <div class="scenario-grid">
+          <article class="card scenario">
+            <h3>8.1 工作分支來自舊版 dev</h3>
+            <p class="scenario-label">發生情況</p>
+            <p><code>feature/20</code> 從 <code>dev#A</code> 建立，但其他工作分支已完成上線，並產生新的 <code>dev#2</code>。</p>
+            <p class="scenario-label">要做什麼</p>
+            <p>將最新的 <code>dev#2</code> 同步至 <code>feature/20</code>，確認功能可以在最新程式基準上運作。</p>
+            <p class="scenario-label">處理步驟</p>
+            <ol><li>確認 <code>feature/20</code> 仍然是有效需求。</li><li>將最新 <code>dev#2</code> merge 進 <code>feature/20</code>。</li><li>處理衝突並重新測試。</li><li>由 <code>feature/20</code> 個別 merge 進 SIT；SIT 通過後，再個別 merge 進 UAT。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>不需要重新 merge 已經進入 <code>main</code> 的 feature；這些內容已透過新的 <code>dev</code> 基線帶入。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.2 工作分支尚未開始實作</h3>
+            <p class="scenario-label">發生情況</p><p>分支已建立，但尚未修改程式，或只有少量初始化內容，此時 <code>dev</code> 已經更新。</p>
+            <p class="scenario-label">處理方式</p><ol><li>確認舊分支沒有需要保留的修改。</li><li>從最新 <code>dev</code> 建立新的工作分支。</li><li>註記或關閉原本的舊分支。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>後續開發使用最新 <code>dev</code> 作為起點，舊分支不再被使用。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.3 工作分支已有部分程式</h3>
+            <p class="scenario-label">發生情況</p><p>工作分支已經有部分開發內容，但需求仍然有效且尚未完成。</p>
+            <p class="scenario-label">處理方式</p><ol><li>保留原工作分支的功能修改。</li><li>將最新 <code>dev</code> merge 進原工作分支。</li><li>處理衝突，確認新基線沒有覆蓋原需求。</li><li>重新編譯、自測，再送 SIT。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>原本未完成的功能仍然保留，並能在最新 <code>dev</code> 基線上運作。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.4 同步最新 dev 時發生衝突</h3>
+            <p class="scenario-label">發生情況</p><p>兩個需求修改了相同程式區段，將最新 <code>dev</code> merge 回工作分支時發生 conflict。</p>
+            <p class="scenario-label">處理方式</p><ol><li>確認衝突程式分別來自哪一項需求。</li><li>比較兩邊的功能目的與影響範圍。</li><li>由需求或程式負責人確認取捨。</li><li>完成處理後，重新測試受影響功能。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>衝突處理結果有人員確認，且 PR 或 merge 紀錄可以追溯決策。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.5 已進入 SIT 後 dev 又更新</h3>
+            <p class="scenario-label">發生情況</p><p>工作分支已進入 SIT 並完成部分測試，但 <code>dev</code> 又因其他需求更新。</p>
+            <p class="scenario-label">處理方式</p><ol><li>將最新 <code>dev</code> 同步回工作分支。</li><li>檢查衝突與相依程式異動。</li><li>重新執行受影響測試。</li><li>必要時重新 merge 進 SIT，確認結果後才可進 UAT。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>同步後的程式已重新驗證，原 SIT 結果仍適用於目前要交付的版本。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.6 已交付 UAT 後又需要修改</h3>
+            <p class="scenario-label">發生情況</p><p>程式已經進入 UAT 並建立 <code>UAT/&lt;程式交付日期&gt;</code> Tag，但測試或 IT 發現需要修正。</p>
+            <p class="scenario-label">處理方式</p><ol><li>保留原本的 UAT Tag，不修改或覆蓋。</li><li>回到原工作分支修正。</li><li>重新完成 code review、測試、SIT 個別 merge 與 UAT 個別 merge。</li><li>重新建立新的 UAT 交付 Tag。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>每一次 UAT 交付都有獨立 Tag，可以查出各次交付差異。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.7 多個 UAT 交付對應一個 PROD</h3>
+            <p class="scenario-label">發生情況</p><p>同一個正式上線版本可能經過多次 UAT 交付與修正。</p>
+            <p class="scenario-label">處理方式</p><ol><li>每次 UAT 交付都建立新的 <code>UAT/&lt;程式交付日期&gt;</code> Tag。</li><li>IT 確認正式上線後，將已確認內容收斂回 <code>main</code>。</li><li>正式上線完成後，在正式上線的 main commit 建立 <code>PROD/&lt;上線日期&gt;</code> Tag。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>一個 PROD Tag 可以追溯到該上線週期的多個 UAT Tag，且既有 Tag 不被覆蓋。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.8 同一天多次 UAT 交付</h3>
+            <p class="scenario-label">發生情況</p><p>同一天內因修正問題而重複交付 UAT，但日期型 Tag 會產生相同名稱。</p>
+            <p class="scenario-label">處理方式</p><p>在團隊規範中加入流水號或時間，避免 Tag 重複，例如 <code>UAT/20260820-01</code>、<code>UAT/20260820-02</code>。</p>
+            <p class="done"><strong>完成判斷：</strong>同一天的每次交付都有唯一 Tag，且交付清單能指出實際使用的版本。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.9 IT sync branch 發生衝突</h3>
+            <p class="scenario-label">發生情況</p><p>IT 提供的程式碼與目前開發中的程式有差異，不能直接覆蓋其他工作分支。</p>
+            <p class="scenario-label">處理方式</p><ol><li>確認 IT 修改的檔案、原因與來源。</li><li>將 IT 內容保留在獨立的 <code>sync/&lt;日期&gt;</code> branch。</li><li>先釐清保留、合併或回退內容，再個別 merge 進 SIT。</li><li>SIT 驗證通過後，再個別 merge 進 UAT。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>IT 程式碼有獨立來源紀錄，且沒有直接覆蓋其他需求的工作分支。</p>
+          </article>
+          <article class="card scenario">
+            <h3>8.10 正式環境發生緊急問題</h3>
+            <p class="scenario-label">發生情況</p><p>正式環境發現問題，但目前 <code>dev</code> 尚有未完成或未驗證功能，不能把整個 <code>dev</code> 帶入正式環境。</p>
+            <p class="scenario-label">處理方式</p><ol><li>以目前正式上線版本，也就是 <code>main</code> 或對應的 PROD Tag，確認問題。</li><li>建立專用的 <code>issue/</code> 或緊急修正 branch。</li><li>只修改正式問題所需的程式。</li><li>依序完成 SIT、UAT 與正式上線確認。</li><li>正式上線後，將修正內容同步回最新 <code>dev</code>。</li></ol>
+            <p class="done"><strong>完成判斷：</strong>正式環境已完成修正，且修正內容已回到開發基線，後續版本不會把修正覆蓋掉。</p>
+          </article>
+        </div>
+        <div class="callout warn"><strong>特殊情境共通原則</strong>先確認來源基線，再確認工作分支是否仍需保留；必要時同步最新 <code>dev</code>、處理衝突、重新測試，最後仍由原工作分支個別進入 SIT 與 UAT。</div>
+      </section>
+      <section id="checklist">
+        <h2>9. Commit、PR 與交付檢查清單</h2>
+        <h3>9.1 工作分支 / PR 前</h3>
+        <div class="checklist">
+          <div class="check">目前在正確的 feature、issue 或 sync branch。</div>
+          <div class="check">已同步最新 dev，並處理必要衝突。</div>
+          <div class="check">已執行必要測試、lint 或編譯。</div>
+          <div class="check">已執行 <code>git diff --check</code>。</div>
+          <div class="check">沒有把密碼、環境檔或暫存檔帶入 commit。</div>
+          <div class="check">PR 說明包含目的、變更、測試、風險與回退方式。</div>
+        </div>
+        <h3>9.2 SIT 個別整合前</h3>
+        <div class="checklist">
+          <div class="check">確認來源 branch 與需求 / ISSUE / IT 調整一致。</div>
+          <div class="check">每個來源 branch 都有獨立的 merge / PR 紀錄。</div>
+          <div class="check">合併後記錄 SIT 驗證結果與異常。</div>
+          <div class="check">SIT 發現問題時，回原工作 branch 修正。</div>
+        </div>
+        <h3>9.3 UAT 個別包版前</h3>
+        <div class="checklist">
+          <div class="check">只納入已通過 SIT 驗證的工作 branch。</div>
+          <div class="check">feature、issue、sync 各自 merge 進 UAT。</div>
+          <div class="check">沒有使用 SIT → UAT 的整批 merge。</div>
+          <div class="check">版號、包版檔、差異檔與交付清單均以 UAT 產出。</div>
+          <div class="check">本次每一次交付 IT 的 UAT commit 都已建立獨立的 <code>UAT/&lt;程式交付日期&gt;</code> Tag。</div>
+          <div class="check">Tag 指向實際交付 IT 的 UAT commit，且沒有覆蓋先前交付 Tag。</div>
+        </div>
+        <h3>9.4 正式上線後</h3>
+        <div class="checklist">
+          <div class="check">IT 已確認正式環境上線，且已完成本次內容回併 main。</div>
+          <div class="check">正式上線 commit 已建立 <code>PROD/&lt;上線日期&gt;</code> Tag。</div>
+          <div class="check">交付清單已記錄多個 UAT Tag 與本次 <code>PROD/&lt;上線日期&gt;</code> Tag 的對應關係。</div>
+        </div>
+        <h3>9.5 Commit 訊息規範與範例</h3>
+        <p>Commit 訊息用來辨識需求開發、Issue 修正、版號更新與 IT 程式同步。開發或修正程式時，Commit 應下在對應的 <code>feature/</code>、<code>issue/</code> 或 <code>sync/</code> 工作分支；SIT、UAT 與 <code>main</code> 的 merge 紀錄，請參考前方各環境章節。</p>
+        <div class="callout"><strong>Commit 訊息格式</strong><code>[類型][模組（功能）][編號][加註標記] 描述</code></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>欄位</th><th>規則</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td>類型</td><td><code>DEV</code>、<code>ISSUE</code>、<code>TASK</code>、<code>SYNC</code></td><td>依照本次 Commit 的主要目的選擇。</td></tr>
+              <tr><td>模組（功能）</td><td>功能名稱、資安、版號或程式</td><td>填寫實際受影響的功能或程式範圍。</td></tr>
+              <tr><td>編號</td><td>依類型使用固定格式</td><td><code>DEV</code> 使用 <code>REQ</code>；<code>ISSUE</code> 使用 Issue 編號；<code>TASK</code> 使用 <code>VERSION</code>；<code>SYNC</code> 使用 <code>IT_MODIFY</code>。</td></tr>
+              <tr><td>加註標記</td><td><code>[DB]</code>、<code>[PKG]</code></td><td><code>[DB]</code> 表示需提供或執行 SQL Script；<code>[PKG]</code> 表示需安裝或更新第三方套件。同時存在時固定使用 <code>[DB][PKG]</code> 順序。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>以下為常用情境範例：</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>情境</th><th>Commit 類型</th><th>Commit 範例</th><th>備註</th></tr></thead>
+            <tbody>
+              <tr><td>開發新功能</td><td><code>DEV</code></td><td><code>[DEV][AXXX功能][REQ] 新增功能：AXXXXXXX0</code></td><td>新合約需求或功能優化。</td></tr>
+              <tr><td>新功能含資料庫異動</td><td><code>DEV</code></td><td><code>[DEV][AXXX功能][REQ][DB] 新增功能：AXXXXXXX1</code></td><td>需提供對應 SQL Script。</td></tr>
+              <tr><td>修正 Issue</td><td><code>ISSUE</code></td><td><code>[ISSUE][AXXX功能][#105] 修正繳款狀態顯示問題</code></td><td><code>#105</code> 為專案 Issue 流水號。</td></tr>
+              <tr><td>修正資安 Issue</td><td><code>ISSUE</code></td><td><code>[ISSUE][資安][#106] 升級 Log4j 修復 CVE 漏洞</code></td><td>資安問題仍使用 <code>ISSUE</code> 類型。</td></tr>
+              <tr><td>Issue 含 DB 與套件異動</td><td><code>ISSUE</code></td><td><code>[ISSUE][AXXX功能][#108][DB][PKG] 修正 XXXXX3</code></td><td>需提供 SQL Script，並安裝或更新第三方套件。</td></tr>
+              <tr><td>更新版號</td><td><code>TASK</code></td><td><code>[TASK][版號][VERSION] 更新版號 20260812</code></td><td>版號 Commit 應落在對應的環境分支。</td></tr>
+              <tr><td>同步 IT 程式</td><td><code>SYNC</code></td><td><code>[SYNC][程式][IT_MODIFY] 同步 IT 所調整的程式碼</code></td><td>IT 提供或調整的程式碼。</td></tr>
+              <tr><td>同步 IT 程式且含套件異動</td><td><code>SYNC</code></td><td><code>[SYNC][程式][IT_MODIFY][PKG] 同步 IT 所調整的程式碼</code></td><td>需安裝或更新第三方套件。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <footer class="footer-note">文件版本：2026-08-12　｜　依團隊提供的 branch 清單與補充規則整理　｜　可使用右上角「列印 / 存成 PDF」產出交付版。</footer>
+    </main>
+  </div>
+  <script>
+    document.querySelectorAll('.copy').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        var text = button.parentElement.querySelector('code').innerText;
+        try { await navigator.clipboard.writeText(text); button.textContent = '已複製'; } catch (e) { button.textContent = '請手動複製'; }
+        setTimeout(function() { button.textContent = '複製'; }, 1400);
+      });
+    });
+    var links = Array.from(document.querySelectorAll('nav a'));
+    var sections = links.map(function(link) { return document.querySelector(link.getAttribute('href')); }).filter(Boolean);
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(link) { link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id); });
+        }
+      });
+    }, { rootMargin:'-20% 0px -65% 0px' });
+    sections.forEach(function(section) { observer.observe(section); });
+  </script>
+</body>
+</html>
